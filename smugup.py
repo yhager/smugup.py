@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import sys, re, urllib, urllib2, urlparse, hashlib, traceback, os.path, ConfigParser
+import sys, re, urllib, urllib2, urlparse, hashlib, traceback, os.path, ConfigParser, time, datetime
+import math
 try    : import json
 except : import simplejson as json
 
@@ -18,11 +19,23 @@ config.read(os.path.expanduser('~/.smugup'))
 class Progress(object):
     def __init__(self):
         self._seen = 0.0
+        self._progress_updated_at = time.time()
+        #self._progress_seen = 0.0
 
     def update(self, total, size, name):
         self._seen += size
-        pct = (self._seen / total) * 100.0
-        print '\r%s progress: %.2f%%' % (name, pct),
+        now = time.time()
+        delta_t = now - self._progress_updated_at
+        if delta_t > 0.1:
+            #self._progress_updated_at = now
+            #rate = (self._seen - self._progress_seen) / delta_t
+            rate = self._seen / delta_t
+            left = math.floor((total - self._seen) / rate)
+            pct = (self._seen / total) * 100.0
+            #print '\rdelta_t: %.2f, size: %.2f, total: %.2f, rate: %.2f, seen: %.2f, left: %.2f' % (delta_t, size, total, rate, self._seen, left)
+            print '\r%s progress: %.2f%% (%.2f KB/s) %s left' % (name, pct, rate/1000, str(datetime.timedelta(seconds=left))),
+            sys.stdout.flush()
+            #self._progress_seen = self._seen
 
 class file_with_callback(file):
     def __init__(self, path, mode, callback, *args):
