@@ -1,0 +1,3 @@
+Edit .smugup and copy it to your home dir
+run it like that:
+smugup.py <album-name> <list of files to upload>

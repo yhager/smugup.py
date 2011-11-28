@@ -1,0 +1,9 @@
+[Account]
+email = <email address of your smugmug account>
+password = <password of same>
+apikey = <apikey of same>
+
+[Generic]
+api_url = https://api.smugmug.com/hack/json/1.2.0/
+upload_url = http://upload.smugmug.com/photos/xmlrawadd.mg
+api_version = 1.2.0
