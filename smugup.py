@@ -2,6 +2,7 @@
 
 import sys, re, urllib, urllib2, urlparse, hashlib, traceback, os.path, ConfigParser, time, datetime
 import math
+import subprocess
 try    : import json
 except : import simplejson as json
 
@@ -134,7 +135,7 @@ for filename in sys.argv[2:] :
   upload_request = urllib2.Request(config.get('Generic', 'upload_url'),
                                    data,
                                    {'Content-Length'  : len(data),
-                                    'Content-MD5'     : hashlib.md5(open(filename, 'rb').read()).hexdigest(),
+                                    'Content-MD5'     : subprocess.check_output(['md5sum', filename]).split()[0],
                                     'Content-Type'    : 'none',
                                     'X-Smug-SessionID': session,
                                     'X-Smug-Version'  : config.get('Generic', 'api_version'),
