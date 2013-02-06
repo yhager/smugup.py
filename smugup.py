@@ -20,7 +20,7 @@ config.read(os.path.expanduser('~/.smugup'))
 class Progress(object):
     def __init__(self):
         self._seen = 0.0
-        self._progress_updated_at = time.time()
+        self._progress_updated_at = self._init_at = time.time()
         #self._progress_seen = 0.0
 
     def update(self, total, size, name):
@@ -37,6 +37,12 @@ class Progress(object):
             print '\r%s progress: %.2f%% (%.2f KB/s) %s left' % (name, pct, rate/1000, str(datetime.timedelta(seconds=left))),
             sys.stdout.flush()
             #self._progress_seen = self._seen
+        if self._seen == total:
+            # done reading the file, print stats
+            time_took = math.floor(now - self._init_at)
+            rate = total / time_took
+            print '\r%s progress: %.2f%% (%.2f KB/s) %s total' % (name, 100, rate/1000, str(datetime.timedelta(seconds=time_took))),
+            sys.stdout.flush()
 
 class file_with_callback(file):
     def __init__(self, path, mode, callback, *args):
@@ -58,7 +64,7 @@ class file_with_callback(file):
 
 if len(sys.argv) < 3 :
   print 'Usage:'
-  print '  upload.py  album  picture1  [picture2  [...]]'
+  print '  upload.py  album [-list] picture1  [picture2  [...]]'
   print
   sys.exit(0)
 
@@ -102,8 +108,7 @@ def safe_geturl(request) :
 
 def smugmug_request(method, params) :
   global su_cookie
-
-  paramstrings = [urllib.quote(key)+'='+urllib.quote(params[key]) for key in params]
+  paramstrings = [urllib.quote(key)+'='+urllib.quote(str(params[key])) for key in params]
   paramstrings += ['method=' + method]
   url = urlparse.urljoin(config.get('Generic', 'api_url'), '?' + '&'.join(paramstrings))
   request = urllib2.Request(url)
@@ -118,14 +123,26 @@ result = smugmug_request('smugmug.login.withPassword',
 session = result['Login']['Session']['id']
 
 result = smugmug_request('smugmug.albums.get', {'SessionID' : session})
-album_id = None
+album_id = album_key = None
 for album in result['Albums'] :
   if album['Title'] == album_name :
     album_id = album['id']
+    album_key = album['Key']
     break
 if album_id is None :
   print 'That album does not exist'
   sys.exit(1)
+
+if sys.argv[2] == '-list':
+    result = smugmug_request('smugmug.images.get',
+                             {'SessionID' : session,
+                              'AlbumID'   : album_id,
+                              'Heavy'     : True,
+                              'AlbumKey'  : album_key})
+    album = result['Album']
+    for image in album['Images']:
+        print image['FileName'] + "\t" + image['URL']
+    sys.exit(0)
 
 for filename in sys.argv[2:] :
   #data = open(filename, 'rb').read()
@@ -148,4 +165,3 @@ for filename in sys.argv[2:] :
 
 print 'Done'
 # sys.stdin.readline()
-
