@@ -62,20 +62,12 @@ class file_with_callback(file):
         return data
 
 
-if len(sys.argv) < 3 :
-  print 'Usage:'
-  print '  upload.py  album [-list] picture1  [picture2  [...]]'
-  print
-  sys.exit(0)
-
-album_name = sys.argv[1]
-su_cookie  = None
 
 def safe_geturl(request) :
   global su_cookie
 
   # Try up to three times
-  for x in range(5) :
+  for x in range(3) :
     try :
       response_obj = urllib2.urlopen(request)
       response = response_obj.read()
@@ -90,7 +82,7 @@ def safe_geturl(request) :
       if result['stat'] != 'ok' : raise Exception('Bad result code')
       return result
     except :
-      if x < 4 :
+      if x < 2 :
         print "  ... failed, retrying"
       else :
         print "  ... failed, giving up"
@@ -116,52 +108,71 @@ def smugmug_request(method, params) :
     request.add_header('Cookie', su_cookie)
   return safe_geturl(request)
 
-result = smugmug_request('smugmug.login.withPassword',
-                         {'APIKey'       : config.get('Account', 'apikey'),
-                          'EmailAddress' : config.get('Account', 'email'),
-                          'Password'     : config.get('Account', 'password')})
-session = result['Login']['Session']['id']
-
-result = smugmug_request('smugmug.albums.get', {'SessionID' : session})
-album_id = album_key = None
-for album in result['Albums'] :
-  if album['Title'] == album_name :
-    album_id = album['id']
-    album_key = album['Key']
-    break
-if album_id is None :
-  print 'That album does not exist'
-  sys.exit(1)
-
-if sys.argv[2] == '-list':
+def images_in_album(session, album_id, album_key):
     result = smugmug_request('smugmug.images.get',
                              {'SessionID' : session,
                               'AlbumID'   : album_id,
                               'Heavy'     : True,
                               'AlbumKey'  : album_key})
     album = result['Album']
-    for image in album['Images']:
+    return album['Images']
+
+def print_images(images):
+    for image in images:
         print image['FileName'] + "\t" + image['URL']
-    sys.exit(0)
 
-for filename in sys.argv[2:] :
-  #data = open(filename, 'rb').read()
-  progress = Progress()
-  data = file_with_callback(filename, 'rb', progress.update, filename)
-  print 'Uploading ' + filename
-  upload_request = urllib2.Request(config.get('Generic', 'upload_url'),
-                                   data,
-                                   {'Content-Length'  : len(data),
-                                    'Content-MD5'     : subprocess.check_output(['md5sum', filename]).split()[0],
-                                    'Content-Type'    : 'none',
-                                    'X-Smug-SessionID': session,
-                                    'X-Smug-Version'  : config.get('Generic', 'api_version'),
-                                    'X-Smug-ResponseType' : 'JSON',
-                                    'X-Smug-AlbumID'  : album_id,
-                                    'X-Smug-FileName' : os.path.basename(filename) })
-  result = safe_geturl(upload_request)
-  if result['stat'] == 'ok' :
-    print "  ... successful"
+if __name__ == "__main__":
+    if len(sys.argv) < 3 :
+        print 'Usage:'
+        print '  upload.py  album [-list] picture1  [picture2  [...]]'
+        print
+        sys.exit(0)
 
-print 'Done'
+    album_name = sys.argv[1]
+    su_cookie  = None
+    result = smugmug_request('smugmug.login.withPassword',
+                             {'APIKey'       : config.get('Account', 'apikey'),
+                              'EmailAddress' : config.get('Account', 'email'),
+                              'Password'     : config.get('Account', 'password')})
+    session = result['Login']['Session']['id']
+
+    result = smugmug_request('smugmug.albums.get', {'SessionID' : session})
+    album_id = album_key = None
+    for album in result['Albums'] :
+        if album['Title'] == album_name :
+            album_id = album['id']
+            album_key = album['Key']
+            break
+    if album_id is None :
+        print 'That album does not exist'
+        sys.exit(1)
+
+    images = images_in_album(session, album_id, album_key)
+    if sys.argv[2] == '-list':
+        print_images(images)
+        sys.exit(0)
+
+    for filename in sys.argv[2:] :
+        if filename in [img['FileName'] for img in images]:
+            print filename + " already exists in album " + album_name + "... Skipping.\n"
+        else:
+            #data = open(filename, 'rb').read()
+            progress = Progress()
+            data = file_with_callback(filename, 'rb', progress.update, filename)
+            print 'Uploading ' + filename
+            upload_request = urllib2.Request(config.get('Generic', 'upload_url'),
+                                             data,
+                                             {'Content-Length'  : len(data),
+                                              'Content-MD5'     : subprocess.check_output(['md5sum', filename]).split()[0],
+                                              'Content-Type'    : 'none',
+                                              'X-Smug-SessionID': session,
+                                              'X-Smug-Version'  : config.get('Generic', 'api_version'),
+                                              'X-Smug-ResponseType' : 'JSON',
+                                              'X-Smug-AlbumID'  : album_id,
+                                              'X-Smug-FileName' : os.path.basename(filename) })
+            result = safe_geturl(upload_request)
+            if result['stat'] == 'ok' :
+                print "  ... successful"
+
+    print 'Done'
 # sys.stdin.readline()
