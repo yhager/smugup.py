@@ -159,7 +159,7 @@ if __name__ == "__main__":
             #data = open(filename, 'rb').read()
             progress = Progress()
             data = file_with_callback(filename, 'rb', progress.update, filename)
-            print 'Uploading ' + filename
+            print 'Uploading ' + filename + " [" + str(sys.argv[2:].index(filename)) + " of " + str(len(sys.argv[2:])) + "]"
             upload_request = urllib2.Request(config.get('Generic', 'upload_url'),
                                              data,
                                              {'Content-Length'  : len(data),
