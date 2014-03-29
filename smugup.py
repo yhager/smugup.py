@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import sys, re, urllib, urllib2, urlparse, hashlib, traceback, os.path, ConfigParser, time, datetime
 import math
@@ -39,7 +39,7 @@ class Progress(object):
             #self._progress_seen = self._seen
         if self._seen == total:
             # done reading the file, print stats
-            time_took = math.floor(now - self._init_at)
+            time_took = max(math.floor(now - self._init_at), 1)
             rate = total / time_took
             print '\r%s progress: %.2f%% (%.2f KB/s) %s total' % (name, 100, rate/1000, str(datetime.timedelta(seconds=time_took))),
             sys.stdout.flush()
@@ -65,6 +65,7 @@ class file_with_callback(file):
 
 def safe_geturl(request) :
   global su_cookie
+  result=response=None
 
   # Try up to three times
   for x in range(3) :
@@ -153,13 +154,13 @@ if __name__ == "__main__":
         sys.exit(0)
 
     for filename in sys.argv[2:] :
-        if filename in [img['FileName'] for img in images]:
+        if os.path.basename(filename) in [img['FileName'] for img in images]:
             print filename + " already exists in album " + album_name + "... Skipping.\n"
         else:
             #data = open(filename, 'rb').read()
             progress = Progress()
             data = file_with_callback(filename, 'rb', progress.update, filename)
-            print 'Uploading ' + filename + " [" + str(sys.argv[2:].index(filename)) + " of " + str(len(sys.argv[2:])) + "]"
+            print 'Uploading ' + filename + " [" + str(sys.argv[2:].index(filename) + 1) + " of " + str(len(sys.argv[2:])) + "]"
             upload_request = urllib2.Request(config.get('Generic', 'upload_url'),
                                              data,
                                              {'Content-Length'  : len(data),
